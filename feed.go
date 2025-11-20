@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	ext "github.com/mmcdole/gofeed/extensions"
+	ext "github.com/mkacmaz/gofeed/extensions"
 )
 
 // Feed is the universal Feed type that atom.Feed
@@ -100,7 +100,7 @@ func (f Feed) Len() int {
 func (f Feed) Less(i, k int) bool {
 	iParsed := f.Items[i].PublishedParsed
 	kParsed := f.Items[k].PublishedParsed
-	
+
 	if iParsed == nil && kParsed == nil {
 		return false
 	}

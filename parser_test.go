@@ -5,16 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/mmcdole/gofeed"
+	"github.com/mkacmaz/gofeed"
 	"github.com/stretchr/testify/assert"
 )
 

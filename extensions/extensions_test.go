@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mmcdole/gofeed"
+	"github.com/mkacmaz/gofeed"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,7 +44,6 @@ func TestITunes_Extensions(t *testing.T) {
 		}
 	}
 }
-
 
 func TestMedia_Extensions(t *testing.T) {
 	files, _ := filepath.Glob("../testdata/extensions/media/*.xml")

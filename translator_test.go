@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mmcdole/gofeed"
-	"github.com/mmcdole/gofeed/atom"
-	"github.com/mmcdole/gofeed/json"
-	"github.com/mmcdole/gofeed/rss"
+	"github.com/mkacmaz/gofeed"
+	"github.com/mkacmaz/gofeed/atom"
+	"github.com/mkacmaz/gofeed/json"
+	"github.com/mkacmaz/gofeed/rss"
 	"github.com/stretchr/testify/assert"
 )
 
