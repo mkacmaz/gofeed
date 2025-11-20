@@ -24,6 +24,8 @@ const (
 	FeedTypeRSS
 	// FeedTypeJSON represents a JSON feed
 	FeedTypeJSON
+	// FeedTypeCAP represents a Common Alerting Protocol feed
+	FeedTypeCAP
 )
 
 // DetectFeedType attempts to determine the type of feed
@@ -67,6 +69,8 @@ func DetectFeedType(feed io.Reader) FeedType {
 			return FeedTypeRSS
 		case "feed":
 			return FeedTypeAtom
+		case "alert":
+			return FeedTypeCAP
 		default:
 			return FeedTypeUnknown
 		}

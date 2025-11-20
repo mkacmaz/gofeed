@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mmcdole/gofeed/atom"
+	"github.com/mmcdole/gofeed/cap"
 	"github.com/mmcdole/gofeed/json"
 	"github.com/mmcdole/gofeed/rss"
 )
@@ -36,12 +37,14 @@ type Parser struct {
 	AtomTranslator Translator
 	RSSTranslator  Translator
 	JSONTranslator Translator
+	CAPTranslator  Translator
 	UserAgent      string
 	AuthConfig     *Auth
 	Client         *http.Client
 	rp             *rss.Parser
 	ap             *atom.Parser
 	jp             *json.Parser
+	cp             *cap.Parser
 }
 
 // Auth is a structure allowing to
@@ -58,12 +61,13 @@ func NewParser() *Parser {
 		rp:        &rss.Parser{},
 		ap:        &atom.Parser{},
 		jp:        &json.Parser{},
+		cp:        &cap.Parser{},
 		UserAgent: "Gofeed/1.0",
 	}
 	return &fp
 }
 
-// Parse parses a RSS or Atom or JSON feed into
+// Parse parses a RSS or Atom or JSON or CAP feed into
 // the universal gofeed.Feed.  It takes an
 // io.Reader which should return the xml/json content.
 func (f *Parser) Parse(feed io.Reader) (*Feed, error) {
@@ -87,6 +91,8 @@ func (f *Parser) Parse(feed io.Reader) (*Feed, error) {
 		return f.parseRSSFeed(r)
 	case FeedTypeJSON:
 		return f.parseJSONFeed(r)
+	case FeedTypeCAP:
+		return f.parseCAPFeed(r)
 	}
 
 	return nil, ErrFeedTypeNotDetected
@@ -172,6 +178,14 @@ func (f *Parser) parseJSONFeed(feed io.Reader) (*Feed, error) {
 	return f.jsonTrans().Translate(jf)
 }
 
+func (f *Parser) parseCAPFeed(feed io.Reader) (*Feed, error) {
+	cf, err := f.cp.Parse(feed)
+	if err != nil {
+		return nil, err
+	}
+	return f.capTrans().Translate(cf)
+}
+
 func (f *Parser) atomTrans() Translator {
 	if f.AtomTranslator != nil {
 		return f.AtomTranslator
@@ -194,6 +208,14 @@ func (f *Parser) jsonTrans() Translator {
 	}
 	f.JSONTranslator = &DefaultJSONTranslator{}
 	return f.JSONTranslator
+}
+
+func (f *Parser) capTrans() Translator {
+	if f.CAPTranslator != nil {
+		return f.CAPTranslator
+	}
+	f.CAPTranslator = &DefaultCAPTranslator{}
+	return f.CAPTranslator
 }
 
 func (f *Parser) httpClient() *http.Client {

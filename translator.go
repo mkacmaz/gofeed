@@ -8,6 +8,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/mmcdole/gofeed/atom"
+	"github.com/mmcdole/gofeed/cap"
 	ext "github.com/mmcdole/gofeed/extensions"
 	"github.com/mmcdole/gofeed/internal/shared"
 	"github.com/mmcdole/gofeed/json"
@@ -1183,4 +1184,306 @@ func (t *DefaultJSONTranslator) translateItemEnclosures(jsonItem *json.Item) (en
 		}
 	}
 	return
+}
+
+// DefaultCAPTranslator converts a CAP feed struct
+// into the generic Feed struct.
+//
+// This default implementation defines a basic mapping
+// for CAP (Common Alerting Protocol) feeds.
+type DefaultCAPTranslator struct{}
+
+// Translate converts a CAP feed into the universal feed type.
+func (t *DefaultCAPTranslator) Translate(feed interface{}) (*Feed, error) {
+	capAlert, found := feed.(*cap.Alert)
+	if !found {
+		return nil, fmt.Errorf("Feed did not match expected type of *cap.Alert")
+	}
+
+	result := &Feed{}
+	result.FeedType = "cap"
+	result.FeedVersion = "1.2"
+	result.Title = t.translateFeedTitle(capAlert)
+	result.Description = t.translateFeedDescription(capAlert)
+	result.Link = t.translateFeedLink(capAlert)
+	result.Updated = t.translateFeedUpdated(capAlert)
+	result.UpdatedParsed = t.translateFeedUpdatedParsed(capAlert)
+	result.Published = t.translateFeedPublished(capAlert)
+	result.PublishedParsed = t.translateFeedPublishedParsed(capAlert)
+	result.Author = t.translateFeedAuthor(capAlert)
+	result.Authors = t.translateFeedAuthors(capAlert)
+	result.Language = t.translateFeedLanguage(capAlert)
+	result.Categories = t.translateFeedCategories(capAlert)
+	result.Items = t.translateItems(capAlert)
+	result.Custom = t.translateCAPCustom(capAlert)
+
+	return result, nil
+}
+
+func (t *DefaultCAPTranslator) translateFeedTitle(alert *cap.Alert) string {
+	if len(alert.Info) > 0 {
+		if alert.Info[0].Headline != "" {
+			return alert.Info[0].Headline
+		}
+		if alert.Info[0].Event != "" {
+			return alert.Info[0].Event
+		}
+	}
+	return alert.Identifier
+}
+
+func (t *DefaultCAPTranslator) translateFeedDescription(alert *cap.Alert) string {
+	if len(alert.Info) > 0 && alert.Info[0].Description != "" {
+		return alert.Info[0].Description
+	}
+	return ""
+}
+
+func (t *DefaultCAPTranslator) translateFeedLink(alert *cap.Alert) string {
+	if len(alert.Info) > 0 && alert.Info[0].Web != "" {
+		return alert.Info[0].Web
+	}
+	return ""
+}
+
+func (t *DefaultCAPTranslator) translateFeedUpdated(alert *cap.Alert) string {
+	return alert.Sent
+}
+
+func (t *DefaultCAPTranslator) translateFeedUpdatedParsed(alert *cap.Alert) *time.Time {
+	if alert.Sent != "" {
+		sentTime, err := shared.ParseDate(alert.Sent)
+		if err == nil {
+			return &sentTime
+		}
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateFeedPublished(alert *cap.Alert) string {
+	return alert.Sent
+}
+
+func (t *DefaultCAPTranslator) translateFeedPublishedParsed(alert *cap.Alert) *time.Time {
+	return t.translateFeedUpdatedParsed(alert)
+}
+
+func (t *DefaultCAPTranslator) translateFeedAuthor(alert *cap.Alert) *Person {
+	if alert.Sender != "" {
+		person := &Person{Email: alert.Sender}
+		if len(alert.Info) > 0 && alert.Info[0].SenderName != "" {
+			person.Name = alert.Info[0].SenderName
+		}
+		return person
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateFeedAuthors(alert *cap.Alert) []*Person {
+	author := t.translateFeedAuthor(alert)
+	if author != nil {
+		return []*Person{author}
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateFeedLanguage(alert *cap.Alert) string {
+	if len(alert.Info) > 0 {
+		return alert.Info[0].Language
+	}
+	return ""
+}
+
+func (t *DefaultCAPTranslator) translateFeedCategories(alert *cap.Alert) []string {
+	if len(alert.Info) > 0 {
+		return alert.Info[0].Category
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateCAPCustom(alert *cap.Alert) map[string]string {
+	custom := make(map[string]string)
+	custom["identifier"] = alert.Identifier
+	custom["status"] = alert.Status
+	custom["msgType"] = alert.MsgType
+	custom["scope"] = alert.Scope
+
+	if alert.Source != "" {
+		custom["source"] = alert.Source
+	}
+	if alert.Note != "" {
+		custom["note"] = alert.Note
+	}
+
+	for i, code := range alert.Code {
+		custom[fmt.Sprintf("code_%d", i)] = code
+	}
+
+	if len(alert.Info) > 0 {
+		info := alert.Info[0]
+		custom["urgency"] = info.Urgency
+		custom["severity"] = info.Severity
+		custom["certainty"] = info.Certainty
+
+		if info.Effective != "" {
+			custom["effective"] = info.Effective
+		}
+		if info.Expires != "" {
+			custom["expires"] = info.Expires
+		}
+
+		for _, param := range info.Parameter {
+			key := fmt.Sprintf("parameter_%s", param.ValueName)
+			custom[key] = param.Value
+		}
+	}
+
+	return custom
+}
+
+func (t *DefaultCAPTranslator) translateItems(alert *cap.Alert) []*Item {
+	items := make([]*Item, 0, len(alert.Info))
+
+	for _, info := range alert.Info {
+		item := &Item{}
+		item.Title = t.translateItemTitle(info)
+		item.Description = t.translateItemDescription(info)
+		item.Content = t.translateItemContent(info)
+		item.Link = t.translateItemLink(info)
+		item.Published = t.translateItemPublished(alert, info)
+		item.PublishedParsed = t.translateItemPublishedParsed(alert, info)
+		item.Updated = t.translateItemUpdated(alert)
+		item.UpdatedParsed = t.translateItemUpdatedParsed(alert)
+		item.GUID = alert.Identifier
+		item.Categories = info.Category
+		item.Enclosures = t.translateItemEnclosures(info)
+		item.Custom = t.translateItemCAPCustom(info)
+
+		items = append(items, item)
+	}
+
+	return items
+}
+
+func (t *DefaultCAPTranslator) translateItemTitle(info *cap.Info) string {
+	if info.Headline != "" {
+		return info.Headline
+	}
+	return info.Event
+}
+
+func (t *DefaultCAPTranslator) translateItemDescription(info *cap.Info) string {
+	return info.Description
+}
+
+func (t *DefaultCAPTranslator) translateItemContent(info *cap.Info) string {
+	if info.Description != "" && info.Instruction != "" {
+		return info.Description + "\n\n" + info.Instruction
+	}
+	if info.Instruction != "" {
+		return info.Instruction
+	}
+	return info.Description
+}
+
+func (t *DefaultCAPTranslator) translateItemLink(info *cap.Info) string {
+	return info.Web
+}
+
+func (t *DefaultCAPTranslator) translateItemPublished(alert *cap.Alert, info *cap.Info) string {
+	if info.Effective != "" {
+		return info.Effective
+	}
+	return alert.Sent
+}
+
+func (t *DefaultCAPTranslator) translateItemPublishedParsed(alert *cap.Alert, info *cap.Info) *time.Time {
+	if info.Effective != "" {
+		effectiveTime, err := shared.ParseDate(info.Effective)
+		if err == nil {
+			return &effectiveTime
+		}
+	}
+	if alert.Sent != "" {
+		sentTime, err := shared.ParseDate(alert.Sent)
+		if err == nil {
+			return &sentTime
+		}
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateItemUpdated(alert *cap.Alert) string {
+	return alert.Sent
+}
+
+func (t *DefaultCAPTranslator) translateItemUpdatedParsed(alert *cap.Alert) *time.Time {
+	if alert.Sent != "" {
+		sentTime, err := shared.ParseDate(alert.Sent)
+		if err == nil {
+			return &sentTime
+		}
+	}
+	return nil
+}
+
+func (t *DefaultCAPTranslator) translateItemEnclosures(info *cap.Info) []*Enclosure {
+	if len(info.Resource) == 0 {
+		return nil
+	}
+
+	enclosures := make([]*Enclosure, 0, len(info.Resource))
+	for _, resource := range info.Resource {
+		e := &Enclosure{}
+		e.URL = resource.URI
+		e.Type = resource.MimeType
+		e.Length = fmt.Sprintf("%d", resource.Size)
+		enclosures = append(enclosures, e)
+	}
+
+	return enclosures
+}
+
+func (t *DefaultCAPTranslator) translateItemCAPCustom(info *cap.Info) map[string]string {
+	custom := make(map[string]string)
+
+	custom["event"] = info.Event
+	custom["urgency"] = info.Urgency
+	custom["severity"] = info.Severity
+	custom["certainty"] = info.Certainty
+
+	if info.Contact != "" {
+		custom["contact"] = info.Contact
+	}
+	if info.Expires != "" {
+		custom["expires"] = info.Expires
+	}
+	if info.Onset != "" {
+		custom["onset"] = info.Onset
+	}
+
+	for i, area := range info.Area {
+		prefix := fmt.Sprintf("area_%d", i)
+		custom[prefix+"_desc"] = area.AreaDesc
+
+		for j, polygon := range area.Polygon {
+			custom[fmt.Sprintf("%s_polygon_%d", prefix, j)] = polygon
+		}
+
+		for j, circle := range area.Circle {
+			custom[fmt.Sprintf("%s_circle_%d", prefix, j)] = circle
+		}
+
+		for _, geocode := range area.Geocode {
+			key := fmt.Sprintf("%s_geocode_%s", prefix, geocode.ValueName)
+			custom[key] = geocode.Value
+		}
+	}
+
+	for _, param := range info.Parameter {
+		key := fmt.Sprintf("parameter_%s", param.ValueName)
+		custom[key] = param.Value
+	}
+
+	return custom
 }
