@@ -1202,7 +1202,10 @@ func (t *DefaultCAPTranslator) Translate(feed interface{}) (*Feed, error) {
 
 	result := &Feed{}
 	result.FeedType = "cap"
-	result.FeedVersion = "1.2"
+	result.FeedVersion = capAlert.Version
+	if result.FeedVersion == "" {
+		result.FeedVersion = "1.2"
+	}
 	result.Title = t.translateFeedTitle(capAlert)
 	result.Description = t.translateFeedDescription(capAlert)
 	result.Link = t.translateFeedLink(capAlert)
